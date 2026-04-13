@@ -179,11 +179,11 @@
   </div>
 
   <div id="main-section" style="display:none;">
-    <div class="mode-tabs">
-      <button class="mode-tab filmmaker active" onclick="setMode('filmmaker')">
+    <div class="mode-tabs" id="mode-tabs">
+      <button class="mode-tab filmmaker active" id="tab-filmmaker" onclick="setMode('filmmaker')">
         필르머<span class="tab-sub">날짜 등록</span>
       </button>
-      <button class="mode-tab rider" onclick="setMode('rider')">
+      <button class="mode-tab rider" id="tab-rider" onclick="setMode('rider')">
         일정 보기 / 신청<span class="tab-sub">전체 + 라이더 신청</span>
       </button>
     </div>
@@ -230,7 +230,23 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const FMS = ['전기호 vivid film', '김기훈 kihoonphoto', '배상현 nowfilm', '김형태 h film', '김대현 arcticfoxxi'];
-let mode = 'filmmaker', selFM = FMS[0];
+
+// URL 파라미터로 접근 권한 결정
+const PW_MAP = {
+  'vivid':  '전기호 vivid film',
+  'kihoon': '김기훈 kihoonphoto',
+  'now':    '배상현 nowfilm',
+  'hfilm':  '김형태 h film',
+  'arctic': '김대현 arcticfoxxi',
+  'admin':  'admin'
+};
+const urlPw = new URLSearchParams(location.search).get('pw') || '';
+const myFM = PW_MAP[urlPw] || null; // null = 라이더
+const isAdmin = myFM === 'admin';
+const isFilmmaker = myFM && !isAdmin;
+
+let mode = (isFilmmaker || isAdmin) ? 'filmmaker' : 'rider';
+let selFM = isFilmmaker ? myFM : FMS[0];
 let fmY = 2026, fmM = 11, ovY = 2026, ovM = 11;
 let openSlots = {}, bookings = {};
 let db = null;
@@ -284,7 +300,20 @@ function subscribeData() {
     renderAll();
     document.getElementById('loading-overlay').style.display = 'none';
     document.getElementById('main-section').style.display = 'block';
+    applyRoleUI();
   });
+}
+
+function applyRoleUI() {
+  // 라이더: 필르머 탭 숨김, 일정보기/신청만
+  if (!isFilmmaker && !isAdmin) {
+    document.getElementById('tab-filmmaker').style.display = 'none';
+    setMode('rider');
+  } else {
+    // 필르머/관리자: 양쪽 다 보임, 필르머 탭 먼저
+    document.getElementById('tab-filmmaker').style.display = '';
+    setMode('filmmaker');
+  }
 }
 
 // ── Key ────────────────────────────────────────────
@@ -337,7 +366,8 @@ function renderAll() {
 }
 
 function renderFMTabs() {
-  document.getElementById('fm-tabs').innerHTML = FMS.map(f =>
+  const visible = isAdmin ? FMS : (isFilmmaker ? [myFM] : []);
+  document.getElementById('fm-tabs').innerHTML = visible.map(f =>
     `<button class="fm-tab${selFM === f ? ' active' : ''}" onclick="selFMClick('${f}')">${f}</button>`).join('');
 }
 
@@ -493,14 +523,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter') { const b = document.querySelector('.btn-success'); if (b) b.click(); }
 });
 
-const cfg = loadConfig();
-if (cfg) {
-  initFirebase(cfg);
-} else {
-  document.getElementById('loading-overlay').style.display = 'none';
-  document.getElementById('setup-section').style.display = 'block';
-  document.getElementById('main-section').style.display = 'block';
-}
+initFirebase({
+  apiKey: 'AIzaSyBshemNshaOuXozUstoYgXGS1Nt7QRG5Nc',
+  projectId: 'schedule-cal-a8b0c',
+  appId: '1:815852290879:web:b29c23428761705cb7c98a'
+});
 </script>
 </body>
 </html>
