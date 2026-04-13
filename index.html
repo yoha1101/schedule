@@ -111,6 +111,8 @@
   .loading-text { font-size: 13px; color: var(--text2); }
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; font-size: 13px; padding: 10px 20px; border-radius: 8px; z-index: 999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
   .toast.show { opacity: 1; }
+
+  /* Firebase setup guide */
   .setup-guide { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; }
   .setup-guide h2 { font-size: 15px; font-weight: 700; margin-bottom: 0.5rem; }
   .setup-guide p { font-size: 12px; color: var(--text2); margin-bottom: 1rem; line-height: 1.6; }
@@ -120,6 +122,8 @@
   .setup-btn:hover { opacity: 0.85; }
   .setup-steps { font-size: 11px; color: var(--text3); line-height: 2; margin-bottom: 1rem; }
   .setup-steps a { color: var(--blue); text-decoration: none; }
+  .setup-steps a:hover { text-decoration: underline; }
+
   @media (max-width: 600px) {
     .app { padding: 1rem 0.75rem 3rem; }
     header { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -128,11 +132,14 @@
 </style>
 </head>
 <body>
+
 <div id="loading-overlay" class="loading-overlay">
   <div class="loading-spinner"></div>
   <div class="loading-text">불러오는 중...</div>
 </div>
+
 <div id="toast" class="toast"></div>
+
 <div class="app">
   <header>
     <div class="logo">
@@ -142,8 +149,10 @@
         <div class="logo-sub">filmmaker × rider schedule</div>
       </div>
     </div>
-    <div class="season-badge">2024.11 — 2025.03</div>
+    <div class="season-badge">2026.11 — 2027.03</div>
   </header>
+
+  <!-- Firebase 설정 안내 (처음 한 번만) -->
   <div id="setup-section" style="display:none;">
     <div class="setup-guide">
       <h2>🔥 Firebase 연결 설정</h2>
@@ -160,11 +169,18 @@
       <button class="setup-btn" onclick="saveConfig()">저장하고 시작하기</button>
     </div>
   </div>
+
   <div id="main-section" style="display:none;">
     <div class="mode-tabs">
-      <button class="mode-tab filmmaker active" onclick="setMode('filmmaker')">필르머<span class="tab-sub">날짜 등록</span></button>
-      <button class="mode-tab rider" onclick="setMode('rider')">일정 보기 / 신청<span class="tab-sub">전체 + 라이더 신청</span></button>
+      <button class="mode-tab filmmaker active" onclick="setMode('filmmaker')">
+        필르머<span class="tab-sub">날짜 등록</span>
+      </button>
+      <button class="mode-tab rider" onclick="setMode('rider')">
+        일정 보기 / 신청<span class="tab-sub">전체 + 라이더 신청</span>
+      </button>
     </div>
+
+    <!-- 필르머 -->
     <div class="section visible" id="sec-filmmaker">
       <div class="fm-tabs" id="fm-tabs"></div>
       <div class="info-bar">슬롯을 클릭해서 가능한 날짜를 열거나 닫을 수 있어요. 예약된 슬롯을 클릭하면 라이더 정보를 볼 수 있어요.</div>
@@ -181,6 +197,8 @@
       <div class="cal-wrap"><div class="cal-grid" id="fm-cal"></div></div>
       <div id="fm-summary"></div>
     </div>
+
+    <!-- 라이더+전체 통합 -->
     <div class="section" id="sec-rider">
       <div class="info-bar">필르머 5명의 전체 슬롯이에요. 신청 가능한 슬롯을 클릭해서 등록하세요.</div>
       <div class="month-nav">
@@ -195,19 +213,24 @@
       <div class="cal-wrap"><div class="cal-grid" id="ov-cal"></div></div>
     </div>
   </div>
+
   <div id="modal-root"></div>
 </div>
+
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const FMS = ['전기호 vivid film', '김기훈 kihoonphoto', '배상현 nowfilm', '김형태 h film', '김대현 arcticfoxxi'];
 let mode = 'filmmaker', selFM = FMS[0];
-let fmY = 2024, fmM = 11, ovY = 2024, ovM = 11;
+let fmY = 2026, fmM = 11, ovY = 2026, ovM = 11;
 let openSlots = {}, bookings = {};
 let db = null;
 
-function loadConfig() { try { return JSON.parse(localStorage.getItem('fb_config')); } catch { return null; } }
+// ── Config ──────────────────────────────────────────
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem('fb_config')); } catch { return null; }
+}
 
 window.saveConfig = function() {
   const apiKey = document.getElementById('cfg-apiKey').value.trim();
@@ -222,7 +245,13 @@ function initFirebase(cfg) {
   document.getElementById('setup-section').style.display = 'none';
   document.getElementById('loading-overlay').style.display = 'flex';
   try {
-    const app = initializeApp({ apiKey: cfg.apiKey, authDomain: `${cfg.projectId}.firebaseapp.com`, projectId: cfg.projectId, storageBucket: `${cfg.projectId}.appspot.com`, appId: cfg.appId });
+    const app = initializeApp({
+      apiKey: cfg.apiKey,
+      authDomain: `${cfg.projectId}.firebaseapp.com`,
+      projectId: cfg.projectId,
+      storageBucket: `${cfg.projectId}.appspot.com`,
+      appId: cfg.appId
+    });
     db = getFirestore(app);
     subscribeData();
   } catch(e) {
@@ -234,16 +263,26 @@ function initFirebase(cfg) {
 }
 
 function subscribeData() {
-  onSnapshot(collection(db, 'openSlots'), snap => { openSlots = {}; snap.forEach(d => { openSlots[d.id] = true; }); renderAll(); });
+  // openSlots
+  onSnapshot(collection(db, 'openSlots'), snap => {
+    openSlots = {};
+    snap.forEach(d => { openSlots[d.id] = true; });
+    renderAll();
+  });
+  // bookings
   onSnapshot(collection(db, 'bookings'), snap => {
-    bookings = {}; snap.forEach(d => { bookings[d.id] = d.data(); }); renderAll();
+    bookings = {};
+    snap.forEach(d => { bookings[d.id] = d.data(); });
+    renderAll();
     document.getElementById('loading-overlay').style.display = 'none';
     document.getElementById('main-section').style.display = 'block';
   });
 }
 
+// ── Key ────────────────────────────────────────────
 function sk(fm, d, t) { return `${fm}_${d}_${t}`; }
 
+// ── Mode ───────────────────────────────────────────
 window.setMode = function(m) {
   mode = m;
   document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
@@ -253,21 +292,28 @@ window.setMode = function(m) {
   renderAll();
 }
 
+// ── Month ──────────────────────────────────────────
 function clamp(y, m) {
-  if (y < 2024 || (y === 2024 && m < 11)) return [2024, 11];
-  if (y > 2025 || (y === 2025 && m > 3)) return [2025, 3];
+  if (y < 2026 || (y === 2026 && m < 11)) return [2026, 11];
+  if (y > 2027 || (y === 2027 && m > 3)) return [2027, 3];
   return [y, m];
 }
 
 window.changeMonth = function(dir, ctx) {
-  if (ctx === 'fm') { fmM += dir; if (fmM > 12) { fmM = 1; fmY++; } if (fmM < 1) { fmM = 12; fmY--; } [fmY, fmM] = clamp(fmY, fmM); renderFilmmaker(); }
-  else { ovM += dir; if (ovM > 12) { ovM = 1; ovY++; } if (ovM < 1) { ovM = 12; ovY--; } [ovY, ovM] = clamp(ovY, ovM); renderOverview(); }
+  if (ctx === 'fm') {
+    fmM += dir; if (fmM > 12) { fmM = 1; fmY++; } if (fmM < 1) { fmM = 12; fmY--; }
+    [fmY, fmM] = clamp(fmY, fmM); renderFilmmaker();
+  } else {
+    ovM += dir; if (ovM > 12) { ovM = 1; ovY++; } if (ovM < 1) { ovM = 12; ovY--; }
+    [ovY, ovM] = clamp(ovY, ovM); renderOverview();
+  }
 }
 
+// ── Calendar Builder ───────────────────────────────
 function buildCal(y, m, cellFn) {
-  const days = ['일','월','화','수','목','금','토'];
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
   let h = days.map(d => `<div class="day-hdr">${d}</div>`).join('');
-  const first = new Date(y, m-1, 1).getDay(), last = new Date(y, m, 0).getDate();
+  const first = new Date(y, m - 1, 1).getDay(), last = new Date(y, m, 0).getDate();
   for (let i = 0; i < first; i++) h += `<div class="day-cell empty"></div>`;
   for (let d = 1; d <= last; d++) {
     const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -276,11 +322,15 @@ function buildCal(y, m, cellFn) {
   return h;
 }
 
-function renderAll() { if (mode === 'filmmaker') renderFilmmaker(); else renderOverview(); }
+// ── Render ─────────────────────────────────────────
+function renderAll() {
+  if (mode === 'filmmaker') renderFilmmaker();
+  else renderOverview();
+}
 
 function renderFMTabs() {
   document.getElementById('fm-tabs').innerHTML = FMS.map(f =>
-    `<button class="fm-tab${selFM===f?' active':''}" onclick="selFMClick('${f}')">${f}</button>`).join('');
+    `<button class="fm-tab${selFM === f ? ' active' : ''}" onclick="selFMClick('${f}')">${f} 필르머</button>`).join('');
 }
 
 window.selFMClick = function(f) { selFM = f; renderFilmmaker(); }
@@ -289,7 +339,7 @@ function renderFilmmaker() {
   renderFMTabs();
   document.getElementById('fm-month').textContent = `${fmY}.${String(fmM).padStart(2,'0')}`;
   document.getElementById('fm-cal').innerHTML = buildCal(fmY, fmM, ds => {
-    return ['오전','오후'].map(t => {
+    return ['오전', '오후'].map(t => {
       const k = sk(selFM, ds, t), b = bookings[k], isOpen = openSlots[k];
       if (b) return `<div class="slot booked" onclick="fmBooked('${selFM}','${ds}','${t}')">${t}: ${b.name} <span class="slot-hint">📞</span></div>`;
       if (isOpen) return `<div class="slot fm-open" onclick="toggleSlot('${selFM}','${ds}','${t}')">${t} <span class="slot-hint">열림</span></div>`;
@@ -304,11 +354,11 @@ function renderOverview() {
   document.getElementById('ov-cal').innerHTML = buildCal(ovY, ovM, ds => {
     let h = '';
     FMS.forEach(fm => {
-      ['오전','오후'].forEach(t => {
+      ['오전', '오후'].forEach(t => {
         const k = sk(fm, ds, t), b = bookings[k], isOpen = openSlots[k];
         if (!isOpen) return;
-        if (b) h += `<div class="slot ov-booked">${fm.split(' ')[0]} ${t[0]}: ${b.name}</div>`;
-        else h += `<div class="slot ov-open" onclick="riderBook('${fm}','${ds}','${t}')">${fm.split(' ')[0]} ${t[0]} <span class="slot-hint">신청</span></div>`;
+        if (b) h += `<div class="slot ov-booked">${fm} ${t[0]}: ${b.name}</div>`;
+        else h += `<div class="slot ov-open" onclick="riderBook('${fm}','${ds}','${t}')">${fm} ${t[0]} <span class="slot-hint">신청</span></div>`;
       });
     });
     return h;
@@ -317,39 +367,84 @@ function renderOverview() {
 
 function getMonthBookings(fm, y, m) {
   const prefix = `${fm}_${y}-${String(m).padStart(2,'0')}-`;
-  return Object.keys(bookings).filter(k => k.startsWith(prefix))
+  return Object.keys(bookings)
+    .filter(k => k.startsWith(prefix))
     .map(k => { const parts = k.split('_'); return { date: parts[1], time: parts[2], ...bookings[k] }; })
-    .sort((a, b) => a.date.localeCompare(b.date) || (a.time==='오전'?-1:1));
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.time === '오전' ? -1 : 1));
 }
 
 function renderSummary() {
   const list = getMonthBookings(selFM, fmY, fmM);
   const el = document.getElementById('fm-summary');
   const monthStr = `${fmY}.${String(fmM).padStart(2,'0')}`;
-  if (!list.length) { el.innerHTML = `<div class="summary"><div class="summary-header"><div class="summary-title">${monthStr} 예약 현황</div></div><div class="summary-empty">이번 달 예약된 라이더가 없어요</div></div>`; return; }
-  const rows = list.map(r => `<tr><td><span class="date-val">${r.date.slice(5).replace('-','/')}</span></td><td><span class="time-badge">${r.time}</span></td><td>${r.name}</td><td><span class="phone-val">${r.phone}</span></td></tr>`).join('');
-  el.innerHTML = `<div class="summary"><div class="summary-header"><div class="summary-title">${monthStr} 예약 현황</div><div class="summary-count">${list.length}건</div></div><div class="summary-table-wrap"><table class="summary-table"><thead><tr><th>날짜</th><th>시간</th><th>이름</th><th>전화번호</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  if (!list.length) {
+    el.innerHTML = `<div class="summary"><div class="summary-header"><div class="summary-title">${monthStr} 예약 현황</div></div><div class="summary-empty">이번 달 예약된 라이더가 없어요</div></div>`;
+    return;
+  }
+  const rows = list.map(r => `
+    <tr>
+      <td><span class="date-val">${r.date.slice(5).replace('-','/')}</span></td>
+      <td><span class="time-badge">${r.time}</span></td>
+      <td>${r.name}</td>
+      <td><span class="phone-val">${r.phone}</span></td>
+    </tr>`).join('');
+  el.innerHTML = `
+    <div class="summary">
+      <div class="summary-header">
+        <div class="summary-title">${monthStr} 예약 현황</div>
+        <div class="summary-count">${list.length}건</div>
+      </div>
+      <div class="summary-table-wrap">
+        <table class="summary-table">
+          <thead><tr><th>날짜</th><th>시간</th><th>이름</th><th>전화번호</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
+// ── Actions ────────────────────────────────────────
 window.toggleSlot = async function(fm, ds, t) {
   const k = sk(fm, ds, t);
   if (bookings[k]) { fmBooked(fm, ds, t); return; }
-  if (openSlots[k]) { await deleteDoc(doc(db, 'openSlots', k)); }
-  else { await setDoc(doc(db, 'openSlots', k), { fm, date: ds, time: t }); }
+  if (openSlots[k]) {
+    await deleteDoc(doc(db, 'openSlots', k));
+  } else {
+    await setDoc(doc(db, 'openSlots', k), { fm, date: ds, time: t });
+  }
 }
 
 window.fmBooked = function(fm, ds, t) {
   const b = bookings[sk(fm, ds, t)];
-  showModal(`<h3>${fm} — ${ds} ${t}</h3><p class="sub">라이더 예약 정보</p><div class="detail-card"><div class="detail-row"><span class="detail-label">이름</span><span class="detail-val">${b.name}</span></div><div class="detail-row"><span class="detail-label">전화번호</span><span class="detail-val" style="color:var(--green)">${b.phone}</span></div></div><div class="modal-btns"><button onclick="closeModal()">닫기</button><button class="btn-danger" onclick="cancelBook('${fm}','${ds}','${t}')">예약 취소</button></div>`);
+  showModal(`
+    <h3>${fm} 필르머 — ${ds} ${t}</h3>
+    <p class="sub">라이더 예약 정보</p>
+    <div class="detail-card">
+      <div class="detail-row"><span class="detail-label">이름</span><span class="detail-val">${b.name}</span></div>
+      <div class="detail-row"><span class="detail-label">전화번호</span><span class="detail-val" style="color:var(--green)">${b.phone}</span></div>
+    </div>
+    <div class="modal-btns">
+      <button onclick="closeModal()">닫기</button>
+      <button class="btn-danger" onclick="cancelBook('${fm}','${ds}','${t}')">예약 취소</button>
+    </div>`);
 }
 
 window.cancelBook = async function(fm, ds, t) {
   await deleteDoc(doc(db, 'bookings', sk(fm, ds, t)));
-  closeModal(); showToast('예약이 취소됐어요');
+  closeModal();
+  showToast('예약이 취소됐어요');
 }
 
 window.riderBook = function(fm, ds, t) {
-  showModal(`<h3>${fm} — ${ds} ${t}</h3><p class="sub">이름과 전화번호를 입력하세요</p><input type="text" id="r-name" placeholder="이름" /><input type="tel" id="r-phone" placeholder="전화번호 (예: 010-1234-5678)" /><div class="modal-btns"><button onclick="closeModal()">취소</button><button class="btn-success" onclick="confirmBook('${fm}','${ds}','${t}')">신청</button></div>`);
+  showModal(`
+    <h3>${fm} 필르머 — ${ds} ${t}</h3>
+    <p class="sub">이름과 전화번호를 입력하세요</p>
+    <input type="text" id="r-name" placeholder="이름" />
+    <input type="tel" id="r-phone" placeholder="전화번호 (예: 010-1234-5678)" />
+    <div class="modal-btns">
+      <button onclick="closeModal()">취소</button>
+      <button class="btn-success" onclick="confirmBook('${fm}','${ds}','${t}')">신청</button>
+    </div>`);
   setTimeout(() => { const i = document.getElementById('r-name'); if (i) i.focus(); }, 50);
 }
 
@@ -359,22 +454,42 @@ window.confirmBook = async function(fm, ds, t) {
   if (!name) { if (nameEl) nameEl.style.borderColor = 'var(--red)'; return; }
   if (!phone) { if (phoneEl) phoneEl.style.borderColor = 'var(--red)'; return; }
   await setDoc(doc(db, 'bookings', sk(fm, ds, t)), { name, phone, fm, date: ds, time: t });
-  closeModal(); showToast('신청 완료!');
+  closeModal();
+  showToast('신청 완료!');
 }
 
-function showModal(inner) { document.getElementById('modal-root').innerHTML = `<div class="modal-bg" onclick="closeModal(event)"><div class="modal">${inner}</div></div>`; }
-window.closeModal = function(e) { if (e && e.target !== e.currentTarget) return; document.getElementById('modal-root').innerHTML = ''; }
+// ── Modal ──────────────────────────────────────────
+function showModal(inner) {
+  document.getElementById('modal-root').innerHTML =
+    `<div class="modal-bg" onclick="closeModal(event)"><div class="modal">${inner}</div></div>`;
+}
 
-function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+window.closeModal = function(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('modal-root').innerHTML = '';
+}
 
+// ── Toast ──────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── Init ───────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('modal-root').innerHTML = '';
   if (e.key === 'Enter') { const b = document.querySelector('.btn-success'); if (b) b.click(); }
 });
 
 const cfg = loadConfig();
-if (cfg) { initFirebase(cfg); }
-else { document.getElementById('loading-overlay').style.display = 'none'; document.getElementById('setup-section').style.display = 'block'; document.getElementById('main-section').style.display = 'block'; }
+if (cfg) {
+  initFirebase(cfg);
+} else {
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('setup-section').style.display = 'block';
+  document.getElementById('main-section').style.display = 'block';
+}
 </script>
 </body>
 </html>
